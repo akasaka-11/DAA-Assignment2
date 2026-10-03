@@ -3,7 +3,6 @@ package daa.benchmark;
 import daa.benchmark.Workloads.Data;
 import daa.benchmark.Workloads.Sample;
 import daa.structures.DynamicArray;
-import daa.structures.MinHeap;
 import daa.structures.MyLinkedList;
 import java.io.IOException;
 import java.io.PrintWriter;
@@ -11,7 +10,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Locale;
-import java.util.Random;
 import java.util.function.Supplier;
 
 
@@ -48,10 +46,7 @@ public final class Benchmark {
                 row(csv, "W4", "-", "MinHeap", n, measure(() -> Workloads.w4(d)));
             }
         }
-        System.out.println("wrote " + outDir.resolve("results.csv"));
-
-        buildHeapComparison(outDir.resolve("buildheap.csv"));
-        System.out.println("wrote " + outDir.resolve("buildheap.csv") + " (checksum " + Workloads.sink + ")");
+        System.out.println("wrote " + outDir.resolve("results.csv") + " (checksum " + Workloads.sink + ")");
     }
 
     /** Runs every workload on both structures so the JVM compiles all hot loops before anything is measured. */
@@ -101,41 +96,5 @@ public final class Benchmark {
         csv.println(String.format(Locale.ROOT, "%s,%s,%s,%d,%.6f,%d,%d,%d",
                 workload, variant, structure, n, s.nanos() / 1e6, s.steps(), s.moves(), s.comparisons()));
         csv.flush();
-    }
-
-    /** Bonus Task B: n separate insert(x) calls versus Floyd's buildHeap on the same data. */
-    private static void buildHeapComparison(Path file) throws IOException {
-        try (PrintWriter csv = new PrintWriter(Files.newBufferedWriter(file))) {
-            csv.println("method,n,time_ms,steps,moves,comparisons");
-            for (int n : SIZES) {
-                int[] data = new int[n];
-                Random rnd = new Random(Workloads.SEED);
-                for (int i = 0; i < n; i++) {
-                    data[i] = rnd.nextInt(1_000_000);
-                }
-                Case inserts = () -> {
-                    long t0 = System.nanoTime();
-                    MinHeap h = new MinHeap();
-                    for (int v : data) {
-                        h.insert(v);
-                    }
-                    long el = System.nanoTime() - t0;
-                    Workloads.sink += h.peekMin();
-                    return new Sample(el, h.metrics().steps, h.metrics().moves, h.metrics().comparisons);
-                };
-                Case build = () -> {
-                    long t0 = System.nanoTime();
-                    MinHeap h = MinHeap.buildHeap(data);
-                    long el = System.nanoTime() - t0;
-                    Workloads.sink += h.peekMin();
-                    return new Sample(el, h.metrics().steps, h.metrics().moves, h.metrics().comparisons);
-                };
-                for (Object[] m : new Object[][] {{"n x insert", inserts}, {"buildHeap", build}}) {
-                    Sample s = measure((Case) m[1]);
-                    csv.println(String.format(Locale.ROOT, "%s,%d,%.6f,%d,%d,%d",
-                            m[0], n, s.nanos() / 1e6, s.steps(), s.moves(), s.comparisons()));
-                }
-            }
-        }
     }
 }
